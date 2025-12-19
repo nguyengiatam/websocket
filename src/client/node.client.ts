@@ -170,7 +170,7 @@ export class WebsocketNode {
      * @param event - Tên event
      * @param data - Dữ liệu gửi kèm
      */
-    public emit(event: string, data: any = null): void {
+    public emit<E extends string, D = any>(event: E, data: D): void {
         const message: WebSocketMessage = { event, data };
 
         if (this.isConnected()) {
@@ -236,7 +236,7 @@ export class WebsocketNode {
      * @param event - Tên event
      * @param handler - Function xử lý event
      */
-    public on(event: string, handler: EventHandler): void {
+    public on<E extends string>(event: E, handler: EventHandler): void {
         if (!this.eventHandlers.has(event)) {
             this.eventHandlers.set(event, new Set());
         }
@@ -248,7 +248,7 @@ export class WebsocketNode {
      * @param event - Tên event
      * @param handler - Function cần hủy đăng ký
      */
-    public off(event: string, handler?: EventHandler): void {
+    public off<E extends string>(event: E, handler?: EventHandler): void {
         if (!handler) {
             // Xóa tất cả handlers của event này
             this.eventHandlers.delete(event);
@@ -269,7 +269,7 @@ export class WebsocketNode {
      * @param event - Tên event
      * @param handler - Function xử lý event
      */
-    public once(event: string, handler: EventHandler): void {
+    public once<E extends string>(event: E, handler: EventHandler): void {
         const onceHandler: EventHandler = (data) => {
             handler(data);
             this.off(event, onceHandler);
@@ -282,7 +282,7 @@ export class WebsocketNode {
      * @param event - Tên event
      * @param data - Dữ liệu truyền cho handlers
      */
-    private triggerEvent(event: string, data: any): void {
+    private triggerEvent<E extends string>(event: E, data: any): void {
         const handlers = this.eventHandlers.get(event);
         if (handlers) {
             handlers.forEach((handler) => {
@@ -364,8 +364,8 @@ export class WebsocketNode {
     /**
      * Lấy danh sách các events đã đăng ký
      */
-    public getRegisteredEvents(): string[] {
-        return Array.from(this.eventHandlers.keys());
+    public getRegisteredEvents<E extends string>(): E[] {
+        return Array.from(this.eventHandlers.keys()) as E[];
     }
 
     /**

@@ -1,10 +1,10 @@
 import * as ws from "ws";
-import { WebsocketServer } from "./websocket-server.ts";
+import { WebsocketServer } from "./websocket-server.js";
 import crypto from "crypto";
 import EventEmitter from "events";
-import { Message } from "./socket-type.ts";
+import { Message } from "./socket-type.js";
 
-export type CallBackEvent<T> = (data: T) => void
+export type CallBackEvent<T = any> = (data: T) => void
 
 /**
  * @interface SocketConnection Kiểu của đối tượng kết nối websocket
@@ -14,51 +14,51 @@ export interface ISocketConnection {
     * Set id cho client
     * @param id Id của client
     */
-    setId: (id: string) => void;
+    setId: <I extends string>(id: I) => void;
 
     /**
     * Lấy id của client
     */
-    getId: () => string;
+    getId: <I extends string>() => I;
 
     /**
     * Lắng nghe sự kiện từ client
     * @param event Tên sự kiện
     * @param callback Hàm sử lý khi có sự kiện từ client
     */
-    onS: <T>(event: string, ...callback: Array<CallBackEvent<T>>) => Promise<void> | void;
+    onS: <E extends string, T = any>(event: E, ...callback: Array<CallBackEvent<T>>) => Promise<void> | void;
 
     /**
     * Phát sự kiện về client
     * @param event Tên sự kiện
     * @param data Dữ liệu gửi về client
     */
-    emitS: <T>(event: string, data: T) => Promise<void> | void;
+    emitS: <E extends string, T = any>(event: E, data: T) => Promise<void> | void;
 
     /**
     * Tham gia phòng
     * @param roomId Id của phòng
     */
-    join: (roomId: string) => void;
+    join: <R extends string>(roomId: R) => void;
 
     /**
     * Thoát phòng
     * @param roomId Id của phòng
     */
-    leave: (roomId: string) => void;
+    leave: <R extends string>(roomId: R) => void;
 
     /**
     * Set biến
     * @param key Tên biến
     * @param value Giá trị biến
     */
-    setVariable: (key: string, value: any) => void;
+    setVariable: <K extends string, T = any>(key: K, value: T) => void;
 
     /**
     * Lấy biến
     * @param key Tên biến
     */
-    getVariable: (key: string) => any;
+    getVariable: <K extends string, T = any>(key: K) => T;
 
     /**
     * Ping client
@@ -74,7 +74,7 @@ export interface ISocketConnection {
     /**
     * Lấy query
     */
-    getQuery: () => any;
+    getQuery: <T = any>() => T;
 
     /**
     * Lấy thông tin xác thực
@@ -89,7 +89,7 @@ export interface ISocketConnection {
     /**
     * Lấy danh sách phòng
     */
-    getRooms: () => Set<string>;
+    getRooms: <R extends string>() => Set<R>;
 }
 
 class WsEvent extends EventEmitter {
@@ -172,8 +172,8 @@ export class SocketConnection implements ISocketConnection {
         })
     }
 
-    getQuery() {
-        return this.query
+    getQuery<T = any>() {
+        return this.query as T
     }
 
     getAuthData<T = any>() {
@@ -186,7 +186,7 @@ export class SocketConnection implements ISocketConnection {
         this.ws.send("ping")
     }
 
-    onS<T>(event: string, ...callbacks: Array<CallBackEvent<T>>): void {
+    onS<E extends string, T = any>(event: E, ...callbacks: Array<CallBackEvent<T>>): void {
         this.event.on(event, async (data: any) => {
             for (const callback of callbacks) {
                 try {
@@ -198,7 +198,7 @@ export class SocketConnection implements ISocketConnection {
         })
     }
 
-    emitS(event: string, data?: any): any {
+    emitS<E extends string, T = any>(event: E, data?: T): any {
         const data_return = JSON.stringify({
             event: event,
             data: data || null
@@ -206,35 +206,35 @@ export class SocketConnection implements ISocketConnection {
         this.ws.send(data_return)
     }
 
-    setId(id: string) {
+    setId<I extends string>(id: I) {
         this.wss.setClientId(this.uuid, id)
         this.uuid = id
     }
 
-    getId() {
-        return this.uuid
+    getId<I extends string>() {
+        return this.uuid as I
     }
 
-    join(room_id: string): void {
+    join<R extends string>(room_id: R): void {
         if (!this.rooms.has(room_id)) {
             this.rooms.add(room_id)
         }
         this.wss.toClients(this.uuid).addClientToRoom(this, room_id)
     }
 
-    leave(room_id: string): void {
+    leave<R extends string>(room_id: R): void {
         if (this.rooms.has(room_id)) {
             this.rooms.delete(room_id)
         }
         this.wss.toClients(this.uuid).removeClientInRoom(this, room_id)
     }
 
-    setVariable(key: string, value: any) {
+    setVariable<K extends string, T = any>(key: K, value: T) {
         this.variables.set(key, value)
     }
 
-    getVariable(key: string) {
-        return this.variables.get(key)
+    getVariable<K extends string, T = any>(key: K) {
+        return this.variables.get(key) as T
     }
 
     close(code?: number, reason?: string) {
@@ -248,7 +248,7 @@ export class SocketConnection implements ISocketConnection {
         return this.isAlive
     }
 
-    getRooms() {
-        return this.rooms
+    getRooms<R extends string>() {
+        return this.rooms as Set<R>
     }
 }

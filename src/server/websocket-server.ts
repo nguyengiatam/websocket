@@ -1,19 +1,22 @@
-import * as ws from "ws"; import url from 'url';
+import * as ws from "ws";
+import url from 'url';
 import http from "http";
-import { SocketLink, WsLink } from "./socket-link.ts";
-import { SocketConnection, ISocketConnection } from "./socket-connection.ts";
+import { SocketLink, WsLink } from "./socket-link.js";
+import { SocketConnection, ISocketConnection } from "./socket-connection.js";
 import { ParsedUrlQuery } from "querystring";
-import { Message } from "./socket-type.ts";
+import { Message } from "./socket-type.js";
 
 export interface IWebsocketServer extends ws.WebSocketServer {
-    toClients(...clientId: Array<string>): WsLink;
-    toRooms(...room_ids: string[]): WsLink;
-    isExistRoom(room_id: string): boolean;
+    setAuth(auth: (req: http.IncomingMessage, query: ParsedUrlQuery) => Promise<any> | any): void;
+    attachServer(httpServer: http.Server): void;
+    toClients<C extends string>(...clientId: Array<C>): WsLink;
+    toRooms<R extends string>(...room_ids: Array<R>): WsLink;
+    isExistRoom<R extends string>(room_id: R): boolean;
     addClient(client: ISocketConnection): void;
     removeClient(client: ISocketConnection): void;
     filter(callback: (client: ISocketConnection) => boolean): WsLink;
     close(): void;
-    toAll(event: string, data?: any): void;
+    toAll<E extends string>(event: E, data?: any): void;
     clientClose(client: ISocketConnection): void;
 }
 
@@ -24,10 +27,10 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
     private rooms: Map<string, Set<ISocketConnection>> = new Map();
     private socketClients: Map<string, ISocketConnection> = new Map();
     private pingInterval: NodeJS.Timeout | null = null;
-    private auth?: (req: http.IncomingMessage) => Promise<any> | any;
+    private auth?: (req: http.IncomingMessage, query: ParsedUrlQuery) => Promise<any> | any;
     private httpServer?: http.Server;
     private static instance: WebsocketServer;
-    private static callbackAfterInit: ((ws: WebsocketServer) => void)[] = [];
+    private static callbackAfterInit: (ws: WebsocketServer) => void;
 
     private constructor(
         option: ws.ServerOptions,
@@ -39,17 +42,19 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
     static init(option: ws.ServerOptions, callback?: () => void): WebsocketServer {
         if (!WebsocketServer.instance) {
             WebsocketServer.instance = new WebsocketServer(option, callback);
-            WebsocketServer.callbackAfterInit.forEach(callback => callback(WebsocketServer.instance));
+            if (WebsocketServer.callbackAfterInit) {
+                WebsocketServer.callbackAfterInit(WebsocketServer.instance);
+            }
         }
         return WebsocketServer.instance;
     }
 
     static registerCallbackAfterInit(callback: (ws: WebsocketServer) => void): void {
-        if (!WebsocketServer.instance) {
-            WebsocketServer.callbackAfterInit.push(callback);
+        if (WebsocketServer.instance) {
+            callback(WebsocketServer.instance);
             return
         }
-        callback(WebsocketServer.instance);
+        WebsocketServer.callbackAfterInit = callback;
     }
 
     static getInstance(): WebsocketServer {
@@ -59,7 +64,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         return WebsocketServer.instance;
     }
 
-    setAuth(auth: (req: http.IncomingMessage) => Promise<any> | any): WebsocketServer {
+    setAuth(auth: (req: http.IncomingMessage, query: ParsedUrlQuery) => Promise<any> | any): WebsocketServer {
         this.auth = auth
         if (!this.httpServer) {
             console.warn("Http server is not attached")
@@ -80,7 +85,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         this.httpServer.on('upgrade', async (req: http.IncomingMessage, sock, head) => {
             try {
                 const url_parse = url.parse(req.url!, true)
-                const authData = this.auth ? await this.auth(req) : null
+                const authData = this.auth ? await this.auth(req, url_parse.query) : null
                 this.handleUpgrade(req, sock, head, (ws) => {
                     this.emit('connection', ws, url_parse.query, authData ?? null)
                 })
@@ -129,7 +134,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         this.socketClients.delete(client.getId())
     }
 
-    setClientId(newClientId: string, oldClientId: string) {
+    setClientId<C extends string>(newClientId: C, oldClientId: C) {
         const client = this.socketClients.get(oldClientId)
         if (client) {
             this.socketClients.delete(oldClientId)
@@ -137,11 +142,11 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         }
     }
 
-    isExistRoom(room_id: string): boolean {
+    isExistRoom<R extends string>(room_id: R): boolean {
         return this.rooms.has(room_id)
     }
 
-    toRooms(...room_ids: string[]): WsLink {
+    toRooms<R extends string>(...room_ids: Array<R>): WsLink {
         let clients = new Set<ISocketConnection>();
         room_ids.forEach((room_id: string, index: number) => {
             if (index === 0) {
@@ -153,7 +158,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         return new SocketLink(clients, this.rooms)
     }
 
-    toClients(...clientId: Array<string>): WsLink {
+    toClients<C extends string>(...clientId: Array<C>): WsLink {
         const clients = new Set<ISocketConnection>();
         clientId.forEach(id => {
             const client = this.socketClients.get(id)

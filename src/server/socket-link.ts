@@ -1,4 +1,4 @@
-import { ISocketConnection } from "./socket-connection.ts";
+import { ISocketConnection } from "./socket-connection.js";
 
 /**
  * @interface WsLink Kiểu tương tác với client của ws-server
@@ -8,20 +8,20 @@ export interface WsLink {
      * Tham gia phòng
      * @param roomId Id của phòng
      */
-    join: (roomId: string) => WsLink;
+    join: <R extends string>(roomId: R) => WsLink;
 
     /**
      * Thêm client vào phòng
      * @param client Client
      * @param roomId Id của phòng
      */
-    addClientToRoom: (client: ISocketConnection, roomId: string) => WsLink;
+    addClientToRoom: <R extends string>(client: ISocketConnection, roomId: R) => WsLink;
 
     /**
      * Thoát phòng
      * @param roomId Id của phòng
      */
-    leave: (roomId: string) => WsLink;
+    leave: <R extends string>(roomId: R) => WsLink;
 
     /**
      * Đóng kết nối
@@ -33,14 +33,14 @@ export interface WsLink {
      * @param event Tên sự kiện
      * @param data Dữ liệu gửi về client
      */
-    emitS: (event: string, data?: any) => WsLink;
+    emitS: <E extends string>(event: E, data?: any) => WsLink;
 
     /**
      * Xóa client khỏi phòng
      * @param client Client
      * @param roomIds Danh sách Id phòng
      */
-    removeClientInRoom: (client: ISocketConnection, ...roomIds: Array<string>) => WsLink;
+    removeClientInRoom: <R extends string>(client: ISocketConnection, ...roomIds: Array<R>) => WsLink;
 
 }
 
@@ -50,7 +50,7 @@ export class SocketLink implements WsLink {
         private rooms: Map<string, Set<ISocketConnection>>,
     ) { }
 
-    public join(roomId: string): WsLink {
+    public join<R extends string>(roomId: R): WsLink {
         if (!this.rooms.has(roomId)) {
             this.rooms.set(roomId, new Set<ISocketConnection>())
         }
@@ -62,7 +62,7 @@ export class SocketLink implements WsLink {
         return this
     }
 
-    public addClientToRoom(client: ISocketConnection, roomId: string): WsLink {
+    public addClientToRoom<R extends string>(client: ISocketConnection, roomId: R): WsLink {
         if (!this.rooms.has(roomId)) {
             this.rooms.set(roomId, new Set<ISocketConnection>())
         }
@@ -73,7 +73,7 @@ export class SocketLink implements WsLink {
         return this
     }
 
-    public leave(roomId: string): WsLink {
+    public leave<R extends string>(roomId: R): WsLink {
         this.clients.forEach(val => {
             val.leave(roomId)
             this.rooms.get(roomId)?.delete(val)
@@ -88,12 +88,12 @@ export class SocketLink implements WsLink {
         return this
     }
 
-    public emitS(event: string, data?: any): WsLink {
+    public emitS<E extends string>(event: E, data?: any): WsLink {
         this.clients.forEach(val => val.emitS(event, data))
         return this
     }
 
-    public removeClientInRoom(client: ISocketConnection, ...roomIds: Array<string>): WsLink {
+    public removeClientInRoom<R extends string>(client: ISocketConnection, ...roomIds: Array<R>): WsLink {
         roomIds.forEach(roomId => {
             this.rooms.get(roomId)?.delete(client)
             if (this.rooms.get(roomId)?.size === 0) {

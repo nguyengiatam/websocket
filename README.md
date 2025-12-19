@@ -99,7 +99,117 @@ wsServer.setAuth(async (req: http.IncomingMessage) => {
 });
 ```
 
-#### 3. Sử dụng Query Parameters
+#### 3. Sử dụng registerCallbackAfterInit (cho NestJS hoặc Module Isolation)
+
+`registerCallbackAfterInit` cho phép đăng ký callback sẽ được gọi ngay sau khi WebSocket server được khởi tạo. Điều này hữu ích khi:
+- Sử dụng framework như **NestJS** với dependency injection
+- Muốn tách biệt logic khởi tạo server và cấu hình
+- Tránh export chéo giữa các module
+
+**Kịch bản 1: Sử dụng với NestJS**
+
+```typescript
+// websocket.module.ts
+import { Module } from '@nestjs/common';
+import { Server } from '@maxsida/websocket';
+import { WebsocketGateway } from './websocket.gateway';
+
+@Module({
+  providers: [WebsocketGateway]
+})
+export class WebsocketModule {
+  constructor(private wsGateway: WebsocketGateway) {
+    // Đăng ký callback trước khi server được init
+    Server.WebsocketServer.registerCallbackAfterInit((wsServer) => {
+      // Callback này sẽ chạy ngay sau khi server được khởi tạo
+      this.wsGateway.setupWebsocket(wsServer);
+    });
+  }
+}
+
+// websocket.gateway.ts
+import { Injectable } from '@nestjs/common';
+import { Server } from '@maxsida/websocket';
+
+@Injectable()
+export class WebsocketGateway {
+  setupWebsocket(wsServer: Server.IWebsocketServer) {
+    wsServer.connected({
+      connectionHandler: (ws, wss) => {
+        console.log('Client connected');
+        ws.onS('message', (data) => {
+          // Xử lý message
+        });
+      },
+      errorHandler: (error, ws) => {
+        console.error('Error:', error);
+      }
+    });
+  }
+}
+
+// main.ts hoặc app.module.ts - nơi khởi tạo server
+import { Server } from '@maxsida/websocket';
+import http from 'http';
+
+const httpServer = http.createServer(app);
+const wsServer = Server.WebsocketServer.init({ noServer: true });
+wsServer.attachServer(httpServer);
+// Callback đã đăng ký sẽ tự động chạy tại đây
+```
+
+**Kịch bản 2: Tách biệt module để tránh circular dependency**
+
+```typescript
+// websocket-config.ts
+import { Server } from '@maxsida/websocket';
+
+// Đăng ký cấu hình mà không cần import server instance
+Server.WebsocketServer.registerCallbackAfterInit((wsServer) => {
+  wsServer.setAuth(async (req, query) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) throw new Error('Unauthorized');
+    
+    const user = await verifyToken(token);
+    return user;
+  });
+  
+  wsServer.connected({
+    connectionHandler: (ws, wss) => {
+      const authData = ws.getAuthData();
+      console.log('User connected:', authData);
+      
+      ws.setId(authData.userId);
+      ws.join(authData.userId);
+    },
+    errorHandler: (error, ws) => {
+      ws.emitS('error', { message: error.message });
+    }
+  });
+});
+
+// server.ts
+import './websocket-config'; // Import để đăng ký callback
+import { Server } from '@maxsida/websocket';
+import express from 'express';
+import http from 'http';
+
+const app = express();
+const httpServer = http.createServer(app);
+
+// Khởi tạo server - callback sẽ tự động chạy
+const wsServer = Server.WebsocketServer.init({ noServer: true });
+wsServer.attachServer(httpServer);
+
+httpServer.listen(8080);
+```
+
+**Lưu ý quan trọng:**
+- Nếu server đã được khởi tạo, callback sẽ được gọi **ngay lập tức**
+- Nếu server chưa khởi tạo, callback sẽ được gọi **sau khi** `init()` được gọi
+- Callback chỉ được gọi **một lần duy nhất**
+
+#### 4. Sử dụng Query Parameters
 
 ```typescript
 wsServer.connected({
@@ -752,8 +862,9 @@ chat.joinRoom('general');
 |--------|---------|-------|
 | `init()` | `options: ws.ServerOptions, callback?` | Khởi tạo server (singleton) |
 | `getInstance()` | - | Lấy instance server |
+| `registerCallbackAfterInit()` | `callback: (ws: WebsocketServer) => void` | Đăng ký callback chạy sau khi init (cho NestJS/module isolation) |
 | `attachServer()` | `httpServer: http.Server` | Gắn vào HTTP server |
-| `setAuth()` | `auth: (req) => any\|Promise<any>` | Callback xác thực, throw error nếu xác thực thất bại |
+| `setAuth()` | `auth: (req, query) => any\|Promise<any>` | Callback xác thực, throw error nếu xác thực thất bại, return data sẽ được truyền vào authData |
 | `connected()` | `options: ConnectedOptions` | Xử lý kết nối |
 | `toClients()` | `...clientIds: string[]` | Chọn clients theo ID |
 | `toRooms()` | `...roomIds: string[]` | Chọn các phòng |
@@ -776,7 +887,7 @@ chat.joinRoom('general');
 | `setVariable()` | `key: string, value: any` | Lưu biến |
 | `getVariable()` | `key: string` | Lấy biến |
 | `getQuery()` | - | Lấy query params |
-| `getAuthData()` | - | Lấy thông tin xác thực, dữ liệu trả về từ callback xác thực |
+| `getAuthData()` | - | Lấy dữ liệu từ setAuth callback |
 | `ping()` | - | Ping client |
 | `getAlive()` | - | Kiểm tra trạng thái |
 | `close()` | - | Đóng kết nối |
