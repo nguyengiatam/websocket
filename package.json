@@ -1,0 +1,32 @@
+{
+  "name": "@vutotoite/websocket",
+  "version": "1.0.1",
+  "description": "A WebSocket implementation with TypeScript support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "type": "module",
+  "keywords": [
+    "websocket",
+    "server",
+    "client",
+    "typescript"
+  ],
+  "author": "maxsida <maxsida.dev@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3"
+  }
+}
