@@ -77,6 +77,11 @@ export interface ISocketConnection {
     getQuery: () => any;
 
     /**
+    * Lấy thông tin xác thực
+    */
+    getAuthData: () => any;
+
+    /**
     * Đóng kết nối
     */
     close: () => void;
@@ -104,6 +109,7 @@ export class SocketConnection implements ISocketConnection {
         private ws: ws.WebSocket,
         private wss: WebsocketServer,
         private query: { [key: string]: string | string[] | undefined },
+        private authData: any,
         private handler: {
             error: (error: Error, ws: ISocketConnection) => void,
             message?: (data: ws.Data, ws: ISocketConnection) => Message,
@@ -168,6 +174,10 @@ export class SocketConnection implements ISocketConnection {
 
     getQuery() {
         return this.query
+    }
+
+    getAuthData() {
+        return this.authData
     }
 
     ping() {

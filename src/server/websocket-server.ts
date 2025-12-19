@@ -24,7 +24,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
     private rooms: Map<string, Set<ISocketConnection>> = new Map();
     private socketClients: Map<string, ISocketConnection> = new Map();
     private pingInterval: NodeJS.Timeout | null = null;
-    private auth?: (req: http.IncomingMessage) => Promise<boolean> | boolean;
+    private auth?: <T = any>(req: http.IncomingMessage) => Promise<T> | T;
     private httpServer?: http.Server;
     private static instance: WebsocketServer;
 
@@ -49,7 +49,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
         return WebsocketServer.instance;
     }
 
-    setAuth(auth: (req: http.IncomingMessage) => Promise<boolean> | boolean): WebsocketServer {
+    setAuth(auth: <T = any>(req: http.IncomingMessage) => Promise<T> | T): WebsocketServer {
         this.auth = auth
         if (!this.httpServer) {
             console.warn("Http server is not attached")
@@ -69,37 +69,28 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
 
         this.httpServer.on('upgrade', async (req: http.IncomingMessage, sock, head) => {
             try {
-                if (this.auth) {
-                    const is_valid = await this.auth(req);
-                    if (!is_valid) {
-                        sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-                        sock.destroy()
-                        return
-                    }
-                }
+                const url_parse = url.parse(req.url!, true)
+                const authData = this.auth ? await this.auth(req) : null
+                this.handleUpgrade(req, sock, head, (ws) => {
+                    this.emit('connection', ws, url_parse.query, authData ?? null)
+                })
             } catch (error) {
-                console.error(error)
                 sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
                 sock.destroy()
                 return
             }
-
-            const url_parse = url.parse(req.url!, true)
-            this.handleUpgrade(req, sock, head, (ws) => {
-                this.emit('connection', ws, url_parse.query)
-            })
         })
         return this
     }
 
     connected(options: {
-        connectionHandler: (ws: ISocketConnection, wss: WebsocketServer) => void,
+        connectionHandler: (ws: ISocketConnection, wss?: WebsocketServer) => void,
         errorHandler: (error: Error, ws: ISocketConnection) => void,
         messageHandler?: (data: string | Buffer | ArrayBuffer | Buffer[], ws: ISocketConnection) => Message,
         closeHandler?: (ws: ISocketConnection) => void
     }): void {
-        this.on("connection", (ws: ws.WebSocket, query: ParsedUrlQuery) => {
-            const socketConnection = new SocketConnection(ws, this, query, {
+        this.on("connection", (ws: ws.WebSocket, query: ParsedUrlQuery, authData: any) => {
+            const socketConnection = new SocketConnection(ws, this, query, authData, {
                 error: options.errorHandler,
                 message: options.messageHandler,
                 close: options.closeHandler

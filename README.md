@@ -83,15 +83,18 @@ wsServer.setAuth(async (req: http.IncomingMessage) => {
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
-    return false;
+    throw new Error('Token không hợp lệ');
   }
   
   // Xác thực token của bạn
   try {
-    const isValid = await verifyToken(token);
-    return isValid;
+    const userInfo = await verifyToken(token);
+    if (!userInfo) {
+      throw new Error('Token không hợp lệ');
+    }
+    return userInfo;
   } catch (error) {
-    return false;
+    throw error;
   }
 });
 ```
@@ -463,9 +466,13 @@ const wsServer = Server.WebsocketServer.init({ noServer: true });
 wsServer.attachServer(httpServer);
 
 // Xác thực
-wsServer.setAuth((req) => {
+wsServer.setAuth(async (req) => {
   const token = req.headers.authorization?.split(' ')[1];
-  return !!token; // Đơn giản hóa, thực tế cần verify token
+  const userInfo = await verifyToken(token); // Thực hiện logic xác thực token
+  if (!userInfo) {
+    throw new Error('Token không hợp lệ');
+  }
+  return userInfo;
 });
 
 // Middleware validation - sử dụng WsError
@@ -746,7 +753,7 @@ chat.joinRoom('general');
 | `init()` | `options: ws.ServerOptions, callback?` | Khởi tạo server (singleton) |
 | `getInstance()` | - | Lấy instance server |
 | `attachServer()` | `httpServer: http.Server` | Gắn vào HTTP server |
-| `setAuth()` | `auth: (req) => boolean\|Promise<boolean>` | Thiết lập xác thực |
+| `setAuth()` | `auth: (req) => any\|Promise<any>` | Callback xác thực, throw error nếu xác thực thất bại |
 | `connected()` | `options: ConnectedOptions` | Xử lý kết nối |
 | `toClients()` | `...clientIds: string[]` | Chọn clients theo ID |
 | `toRooms()` | `...roomIds: string[]` | Chọn các phòng |
@@ -769,6 +776,7 @@ chat.joinRoom('general');
 | `setVariable()` | `key: string, value: any` | Lưu biến |
 | `getVariable()` | `key: string` | Lấy biến |
 | `getQuery()` | - | Lấy query params |
+| `getAuthData()` | - | Lấy thông tin xác thực, dữ liệu trả về từ callback xác thực |
 | `ping()` | - | Ping client |
 | `getAlive()` | - | Kiểm tra trạng thái |
 | `close()` | - | Đóng kết nối |
