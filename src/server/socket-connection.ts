@@ -79,7 +79,7 @@ export interface ISocketConnection {
     /**
     * Lấy thông tin xác thực
     */
-    getAuthData: () => any;
+    getAuthData: <T = any>() => T;
 
     /**
     * Đóng kết nối
@@ -176,8 +176,8 @@ export class SocketConnection implements ISocketConnection {
         return this.query
     }
 
-    getAuthData() {
-        return this.authData
+    getAuthData<T = any>() {
+        return this.authData as T
     }
 
     ping() {
