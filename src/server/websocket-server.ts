@@ -30,7 +30,7 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
     private auth?: (req: http.IncomingMessage, query: ParsedUrlQuery) => Promise<any> | any;
     private httpServer?: http.Server;
     private static instance: WebsocketServer;
-    private static callbackAfterInit: (ws: WebsocketServer) => void;
+    private static initCallback: (ws: WebsocketServer) => void;
 
     private constructor(
         option: ws.ServerOptions,
@@ -42,19 +42,19 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
     static init(option: ws.ServerOptions, callback?: () => void): WebsocketServer {
         if (!WebsocketServer.instance) {
             WebsocketServer.instance = new WebsocketServer(option, callback);
-            if (WebsocketServer.callbackAfterInit) {
-                WebsocketServer.callbackAfterInit(WebsocketServer.instance);
+            if (WebsocketServer.initCallback) {
+                WebsocketServer.initCallback(WebsocketServer.instance);
             }
         }
         return WebsocketServer.instance;
     }
 
-    static registerCallbackAfterInit(callback: (ws: WebsocketServer) => void): void {
+    static onInstanceInit(callback: (ws: WebsocketServer) => void): void {
         if (WebsocketServer.instance) {
             callback(WebsocketServer.instance);
             return
         }
-        WebsocketServer.callbackAfterInit = callback;
+        WebsocketServer.initCallback = callback;
     }
 
     static getInstance(): WebsocketServer {
@@ -66,9 +66,6 @@ export class WebsocketServer extends ws.WebSocketServer implements IWebsocketSer
 
     setAuth(auth: (req: http.IncomingMessage, query: ParsedUrlQuery) => Promise<any> | any): WebsocketServer {
         this.auth = auth
-        if (!this.httpServer) {
-            console.warn("Http server is not attached")
-        }
         return this
     }
 

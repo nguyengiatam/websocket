@@ -99,9 +99,9 @@ wsServer.setAuth(async (req: http.IncomingMessage) => {
 });
 ```
 
-#### 3. Sử dụng registerCallbackAfterInit (cho NestJS hoặc Module Isolation)
+#### 3. Sử dụng onInstanceInit (cho NestJS hoặc Module Isolation)
 
-`registerCallbackAfterInit` cho phép đăng ký callback sẽ được gọi ngay sau khi WebSocket server được khởi tạo. Điều này hữu ích khi:
+`onInstanceInit` cho phép đăng ký callback sẽ được gọi ngay sau khi WebSocket server được khởi tạo. Điều này hữu ích khi:
 - Sử dụng framework như **NestJS** với dependency injection
 - Muốn tách biệt logic khởi tạo server và cấu hình
 - Tránh export chéo giữa các module
@@ -120,7 +120,7 @@ import { WebsocketGateway } from './websocket.gateway';
 export class WebsocketModule {
   constructor(private wsGateway: WebsocketGateway) {
     // Đăng ký callback trước khi server được init
-    Server.WebsocketServer.registerCallbackAfterInit((wsServer) => {
+    Server.WebsocketServer.onInstanceInit((wsServer) => {
       // Callback này sẽ chạy ngay sau khi server được khởi tạo
       this.wsGateway.setupWebsocket(wsServer);
     });
@@ -165,7 +165,7 @@ wsServer.attachServer(httpServer);
 import { Server } from '@maxsida/websocket';
 
 // Đăng ký cấu hình mà không cần import server instance
-Server.WebsocketServer.registerCallbackAfterInit((wsServer) => {
+Server.WebsocketServer.onInstanceInit((wsServer) => {
   wsServer.setAuth(async (req, query) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) throw new Error('Unauthorized');
@@ -862,7 +862,7 @@ chat.joinRoom('general');
 |--------|---------|-------|
 | `init()` | `options: ws.ServerOptions, callback?` | Khởi tạo server (singleton) |
 | `getInstance()` | - | Lấy instance server |
-| `registerCallbackAfterInit()` | `callback: (ws: WebsocketServer) => void` | Đăng ký callback chạy sau khi init (cho NestJS/module isolation) |
+| `onInstanceInit()` | `callback: (ws: WebsocketServer) => void` | Đăng ký callback chạy sau khi init (cho NestJS/module isolation) |
 | `attachServer()` | `httpServer: http.Server` | Gắn vào HTTP server |
 | `setAuth()` | `auth: (req, query) => any\|Promise<any>` | Callback xác thực, throw error nếu xác thực thất bại, return data sẽ được truyền vào authData |
 | `connected()` | `options: ConnectedOptions` | Xử lý kết nối |

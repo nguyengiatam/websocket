@@ -1,6 +1,6 @@
 {
   "name": "@vutotoite/websocket",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "A WebSocket implementation with TypeScript support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

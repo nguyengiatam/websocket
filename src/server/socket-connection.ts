@@ -4,7 +4,7 @@ import crypto from "crypto";
 import EventEmitter from "events";
 import { Message } from "./socket-type.js";
 
-export type CallBackEvent<T = any> = (data: T) => void
+export type CallBackEvent<T = any, V = any> = (data: T, preHandlerResult: V) => V
 
 /**
  * @interface SocketConnection Kiểu của đối tượng kết nối websocket
@@ -26,7 +26,7 @@ export interface ISocketConnection {
     * @param event Tên sự kiện
     * @param callback Hàm sử lý khi có sự kiện từ client
     */
-    onS: <E extends string, T = any>(event: E, ...callback: Array<CallBackEvent<T>>) => Promise<void> | void;
+    onS: <E extends string, T = any, V = any>(event: E, ...callback: Array<CallBackEvent<T, V>>) => Promise<void> | void;
 
     /**
     * Phát sự kiện về client
@@ -186,11 +186,12 @@ export class SocketConnection implements ISocketConnection {
         this.ws.send("ping")
     }
 
-    onS<E extends string, T = any>(event: E, ...callbacks: Array<CallBackEvent<T>>): void {
+    onS<E extends string, T = any, V = any>(event: E, ...callbacks: Array<CallBackEvent<T, V>>): void {
         this.event.on(event, async (data: any) => {
+            let result: V | any
             for (const callback of callbacks) {
                 try {
-                    await callback(data)
+                    result = await callback(data, result)
                 } catch (error) {
                     this.handler.error(error as Error, this)
                 }
